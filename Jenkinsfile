@@ -1,10 +1,5 @@
 pipeline {
     agent any
-    
-    tools {
-        // This MUST match the name 'MyDocker' we just saved in Jenkins Tools
-        dockerTool 'MyDocker' 
-    }
 
     environment {
         DOCKER_HUB_USER = 'jay240322' 
@@ -25,7 +20,8 @@ pipeline {
             steps {
                 echo "Building Docker image: ${IMAGE_NAME}..."
                 script {
-                    sh "docker build -t ${IMAGE_NAME} ."
+                    // Using native plugin syntax instead of raw 'sh'
+                    dockerImage = docker.build("${IMAGE_NAME}", ".")
                 }
             }
         }
@@ -33,11 +29,11 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 echo 'Logging into Docker Hub and pushing image...'
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                 usernameVariable: 'DOCKER_USER', 
-                                                 passwordVariable: 'DOCKER_PASS')]) {
-                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
-                    sh "docker push ${IMAGE_NAME}"
+                script {
+                    // Using native plugin registry helper
+                    docker.withRegistry('', 'docker-hub-credentials') {
+                        dockerImage.push()
+                    }
                 }
             }
         }
