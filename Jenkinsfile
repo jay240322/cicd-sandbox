@@ -1,5 +1,12 @@
 pipeline {
-    agent any
+    // This launches a tiny docker container that contains the docker CLI tool
+    agent {
+        docker {
+            image 'docker:latest'
+            // This shares the Windows docker engine pipe we mounted into Jenkins
+            args '-v //./pipe/docker_engine://./pipe/docker_engine'
+        }
+    }
 
     environment {
         DOCKER_HUB_USER = 'jay240322' 
@@ -20,8 +27,7 @@ pipeline {
             steps {
                 echo "Building Docker image: ${IMAGE_NAME}..."
                 script {
-                    // Using native plugin syntax instead of raw 'sh'
-                    dockerImage = docker.build("${IMAGE_NAME}", ".")
+                    sh "docker build -t ${IMAGE_NAME} ."
                 }
             }
         }
@@ -29,11 +35,11 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 echo 'Logging into Docker Hub and pushing image...'
-                script {
-                    // Using native plugin registry helper
-                    docker.withRegistry('', 'docker-hub-credentials') {
-                        dockerImage.push()
-                    }
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                                                 usernameVariable: 'DOCKER_USER', 
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}"
                 }
             }
         }
