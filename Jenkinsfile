@@ -1,10 +1,5 @@
 pipeline {
     agent any
-    
-    tools {
-        // This pulls in the automatic Docker installation tool we configured in Jenkins
-        dockerTool 'MyDocker' 
-    }
 
     environment {
         DOCKER_HUB_USER = 'jay240322' 
@@ -21,12 +16,29 @@ pipeline {
             }
         }
 
+        stage('Setup Docker CLI Binary') {
+            steps {
+                echo 'Downloading official Docker CLI tool inside Jenkins container...'
+                script {
+                    // This fetches the official lightweight Docker binary client directly into your build workspace
+                    sh '''
+                        if [ ! -f ./docker ]; then
+                            curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz -o docker.tgz
+                            tar -xzvf docker.tgz --strip-components=1 docker/docker
+                            rm docker.tgz
+                            chmod +x ./docker
+                        fi
+                    '''
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image: ${IMAGE_NAME}..."
+                echo "Building Docker image using local CLI binary: ${IMAGE_NAME}..."
                 script {
-                    // Using the native pipeline plugin syntax instead of raw 'sh'
-                    dockerImage = docker.build("${IMAGE_NAME}", ".")
+                    // We point explicitly to the downloaded binary file (./docker) instead of relying on system paths
+                    sh "./docker build -t ${IMAGE_NAME} ."
                 }
             }
         }
@@ -34,10 +46,11 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 echo 'Logging into Docker Hub and pushing image...'
-                script {
-                    docker.withRegistry('', 'docker-hub-credentials') {
-                        dockerImage.push()
-                    }
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                                                 usernameVariable: 'DOCKER_USER', 
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh "./docker login -u \$DOCKER_USER -p \$DOCKER_PASS"
+                    sh "./docker push ${IMAGE_NAME}"
                 }
             }
         }
