@@ -10,18 +10,19 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Enable CORS and JSON parsing
-app.use(cors());
+// Updated CORS to specifically allow your container's frontend environment interaction if needed
+app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 
-// Serve frontend static assets if the folder exists
-const frontendDistPath = path.join(__dirname, '../frontend/dist');
+// Serve frontend static assets if the folder exists (Mapped to src/public for monolithic single-image builds)
+const frontendDistPath = path.join(__dirname, 'src', 'public');
 if (fs.existsSync(frontendDistPath)) {
   app.use(express.static(frontendDistPath));
 }
 
-// MongoDB configuration
-const mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017';
-const dbName = process.env.MONGO_DB_NAME || 'auth_practice_db';
+// MongoDB configuration read directly from your Compose environments
+const mongoUri = process.env.MONGO_URI || 'mongodb://admin:password123@mongodb:27017/auth_db?authSource=admin';
+const dbName = process.env.MONGO_DB_NAME || 'auth_db';
 const usersCollectionName = 'users';
 
 let dbClient = null;
@@ -42,9 +43,9 @@ async function connectDatabase() {
     // Ensure email index is unique
     await usersCollection.createIndex({ email: 1 }, { unique: true });
     
-    console.log(`Successfully connected to MongoDB database: "${dbName}"`);
+    console.log(`🚀 Successfully connected to MongoDB database: "${dbName}"`);
   } catch (error) {
-    console.error('Failed to connect to MongoDB:', error.message);
+    console.error('❌ Failed to connect to MongoDB:', error.message);
     console.log('Server is running, but database connection is pending. Retrying on API requests...');
   }
 }
@@ -57,7 +58,7 @@ async function ensureDbConnected(req, res, next) {
     } catch (err) {
       return res.status(500).json({
         success: false,
-        message: 'Database connection failed. Please ensure MongoDB is running.',
+        message: 'Database connection failed. Please ensure MongoDB container is running.',
         error: err.message
       });
     }
@@ -184,9 +185,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Fallback to React SPA index.html for non-API routes
+// Fallback to React SPA index.html for routing configurations
 if (fs.existsSync(frontendDistPath)) {
-  app.get('*all', (req, res) => {
+  app.use((req, res, next) => {
     if (!req.path.startsWith('/api/')) {
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     } else {
@@ -198,7 +199,7 @@ if (fs.existsSync(frontendDistPath)) {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   if (dbClient) {
-    console.log('Closing MongoDB connection...');
+    console.log('Closing MongoDB connection safely...');
     await dbClient.close();
   }
   process.exit(0);
