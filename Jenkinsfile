@@ -6,8 +6,6 @@ pipeline {
         APP_NAME        = 'cicd-sandbox-nginx'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         IMAGE_NAME      = "${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG}"
-        // This tells the docker CLI to look at your mounted Windows pipe instead of the default Linux path
-        DOCKER_HOST     = 'unix:///./pipe/docker_engine'
     }
 
     stages {
@@ -18,27 +16,12 @@ pipeline {
             }
         }
 
-        stage('Setup Docker CLI Binary') {
-            steps {
-                echo 'Downloading official Docker CLI tool inside Jenkins container...'
-                script {
-                    sh '''
-                        if [ ! -f ./docker ]; then
-                            curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz -o docker.tgz
-                            tar -xzvf docker.tgz --strip-components=1 docker/docker
-                            rm docker.tgz
-                            chmod +x ./docker
-                        fi
-                    '''
-                }
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image using local CLI binary: ${IMAGE_NAME}..."
+                echo "Building Docker image smoothly with plugin: ${IMAGE_NAME}..."
                 script {
-                    sh "./docker build -t ${IMAGE_NAME} ."
+                    // The native plugin handles everything safely without raw 'sh' calls
+                    dockerImage = docker.build("${IMAGE_NAME}", ".")
                 }
             }
         }
@@ -46,11 +29,11 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 echo 'Logging into Docker Hub and pushing image...'
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                 usernameVariable: 'DOCKER_USER', 
-                                                 passwordVariable: 'DOCKER_PASS')]) {
-                    sh "./docker login -u \$DOCKER_USER -p \$DOCKER_PASS"
-                    sh "./docker push ${IMAGE_NAME}"
+                script {
+                    // Uses native plugin registry helper matching your credentials ID
+                    docker.withRegistry('', 'docker-hub-credentials') {
+                        dockerImage.push()
+                    }
                 }
             }
         }
