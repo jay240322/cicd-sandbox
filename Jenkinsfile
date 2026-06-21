@@ -30,7 +30,7 @@ pipeline {
             steps {
                 echo 'Logging into Docker Hub and pushing image...'
                 script {
-                    // Uses native plugin registry helper matching your credentials ID
+                    // Uses native plugin registry helper matching your credentials ID--
                     docker.withRegistry('', 'docker-hub-credentials') {
                         dockerImage.push()
                     }
