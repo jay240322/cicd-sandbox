@@ -41,12 +41,21 @@ pipeline {
        stage('Deploy to Kubernetes') {
     steps {
         script {
-            sh "sed -i 's|image:.*|image: joypatel2403/ci-cd-workflow:1|g' k8s/mongo-express.yaml"
+            sh "sed -i 's|image:.*|image: joypatel2403/ci-cd-workflow:2|g' k8s/mongo-express.yaml"
+            
             withCredentials([file(credentialsId: 'k8s-config', variable: 'CLUSTER_KUBECONFIG')]) {
+                // 1. Check if the file actually has content
+                sh 'echo "=== Kubeconfig Content ===" && cat $CLUSTER_KUBECONFIG'
+                
+                // 2. See what cluster address kubectl is parsing from it
+                sh 'KUBECONFIG=$CLUSTER_KUBECONFIG kubectl config view'
+                
+                // 3. Try the deployment
                 sh 'KUBECONFIG=$CLUSTER_KUBECONFIG kubectl apply -f k8s/ --validate=false'
             }
         }
     }
+}
 }
     }
 
