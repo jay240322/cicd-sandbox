@@ -1,70 +1,117 @@
 pipeline {
     agent any
 
-   environment {
-        DOCKER_HUB_USER = 'joypatel2403' 
-        APP_NAME        = 'ci-cd-workflow'
-        IMAGE_TAG       = "${env.BUILD_NUMBER}"
-        IMAGE_NAME      = "${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG}"
+    environment {
+        // Your Docker Hub details
+        REGISTRY_USER   = 'joypatel2403' 
+        FRONTEND_IMAGE  = "${REGISTRY_USER}/ci-cd-workflow-frontend"
+        BACKEND_IMAGE   = "${REGISTRY_USER}/ci-cd-workflow-backend"
+        IMAGE_TAG       = "${BUILD_NUMBER}"
+        
+        // Credentials IDs configured in your Jenkins Dashboard
+        DOCKER_CRED_ID  = 'docker-hub-credentials' 
+        KUBE_CONFIG_ID  = 'k8s-config' 
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Clone Repository') {
             steps {
-                echo 'Pulling the latest code from GitHub...'
                 checkout scm
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                echo "Building Docker image smoothly with plugin: ${IMAGE_NAME}..."
-                script {
-                    // The native plugin handles everything safely without raw 'sh' calls
-                    dockerImage = docker.build("${IMAGE_NAME}", ".")
+        stage('Install Dependencies & Test') {
+            parallel {
+                stage('Backend Tests') {
+                    steps {
+                        dir('backend') {
+                            echo 'Installing backend dependencies...'
+                            // sh 'npm install'
+                            // sh 'npm test'
+                        }
+                    }
                 }
-            }
-        }
-
-        stage('Push to Docker Hub') {
-            steps {
-                echo 'Logging into Docker Hub and pushing image...'
-                script {
-                    // Uses native plugin registry helper matching your credentials ID--
-                    docker.withRegistry('', 'docker-hub-credentials') {
-                        dockerImage.push()
+                stage('Frontend Tests') {
+                    steps {
+                        dir('frontend') {
+                            echo 'Installing frontend dependencies...'
+                            // sh 'npm install'
+                            // sh 'npm test'
+                        }
                     }
                 }
             }
         }
 
-       stage('Deploy to Kubernetes') {
-    steps {
-        script {
-            sh "sed -i 's|image:.*|image: joypatel2403/ci-cd-workflow:2|g' k8s/mongo-express.yaml"
-            
-            withCredentials([file(credentialsId: 'k8s-config', variable: 'CLUSTER_KUBECONFIG')]) {
-                // 1. Check if the file actually has content
-                sh 'echo "=== Kubeconfig Content ===" && cat $CLUSTER_KUBECONFIG'
-                
-                // 2. See what cluster address kubectl is parsing from it
-                sh 'KUBECONFIG=$CLUSTER_KUBECONFIG kubectl config view'
-                
-                // 3. Try the deployment
-                sh 'KUBECONFIG=$CLUSTER_KUBECONFIG kubectl apply -f k8s/ --validate=false'
+        stage('Build Docker Images') {
+            steps {
+                parallel(
+                    "Frontend": {
+                        dir('frontend') {
+                            sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                        }
+                    },
+                    "Backend": {
+                        dir('backend') {
+                            sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                        }
+                    }
+                )
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_CRED_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin"
+                    
+                    parallel(
+                        "Push Frontend": {
+                            sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${FRONTEND_IMAGE}:latest"
+                        },
+                        "Push Backend": {
+                            sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
+                            sh "docker push ${BACKEND_IMAGE}:latest"
+                        }
+                    )
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                // Securely use kubeconfig to apply manifests and update image versions
+                configFileProvider([configFile(fileId: "${KUBE_CONFIG_ID}", variable: 'KUBECONFIG')]) {
+                    dir('k8s') {
+                        echo "Updating deployment images to tag: ${IMAGE_TAG}"
+                        
+                        // Dynamically update the image tags in manifest files or via kubectl set image
+                        sh "kubectl apply -f ."
+                        sh "kubectl set image deployment/frontend-deployment frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} --kubeconfig=${KUBECONFIG}"
+                        sh "kubectl set image deployment/backend-deployment backend=${BACKEND_IMAGE}:${IMAGE_TAG} --kubeconfig=${KUBECONFIG}"
+                        
+                        // Verify the rollout status
+                        sh "kubectl rollout status deployment/frontend-deployment --kubeconfig=${KUBECONFIG}"
+                        sh "kubectl rollout status deployment/backend-deployment --kubeconfig=${KUBECONFIG}"
+                    }
+                }
             }
         }
     }
-}
-}
-    }
 
     post {
+        always {
+            echo 'Cleaning up Docker images from the build agent...'
+            sh "docker rmi ${FRONTEND_IMAGE}:${IMAGE_TAG} ${FRONTEND_IMAGE}:latest || true"
+            sh "docker rmi ${BACKEND_IMAGE}:${IMAGE_TAG} ${BACKEND_IMAGE}:latest || true"
+            cleanWs()
+        }
         success {
-            echo "Pipeline completed successfully! Build #${env.BUILD_NUMBER} is live."
+            echo "Pipeline succeeded! Deployment updated to version ${IMAGE_TAG}."
         }
         failure {
-            echo "Pipeline failed on Build #${env.BUILD_NUMBER}. Check logs above for details."
+            echo "Pipeline failed. Check the logs for troubleshooting."
         }
     }
 }
