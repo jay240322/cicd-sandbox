@@ -39,14 +39,15 @@ pipeline {
         }
 
        stage('Deploy to Kubernetes') {
-            steps {
-                echo 'Deploying application to Kubernetes cluster...'
-                script {
-                    sh "sed -i 's|image:.*|image: ${IMAGE_NAME}|g' k8s/mongo-express.yaml" 
-                    sh "kubectl apply -f k8s/ --validate=false" //flag
-                }
+    steps {
+        script {
+            sh "sed -i 's|image:.*|image: joypatel2403/ci-cd-workflow:1|g' k8s/mongo-express.yaml"
+            withCredentials([file(credentialsId: 'k8s-config', variable: 'CLUSTER_KUBECONFIG')]) {
+                sh 'KUBECONFIG=$CLUSTER_KUBECONFIG kubectl apply -f k8s/ --validate=false'
             }
         }
+    }
+}
     }
 
     post {
