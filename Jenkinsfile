@@ -45,18 +45,21 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                parallel(
-                    "Frontend": {
-                        dir('frontend') {
-                            sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                // Fixed: Wrapped scripted parallel inside a script block
+                script {
+                    parallel(
+                        "Frontend": {
+                            dir('frontend') {
+                                sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                            }
+                        },
+                        "Backend": {
+                            dir('backend') {
+                                sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                            }
                         }
-                    },
-                    "Backend": {
-                        dir('backend') {
-                            sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
-                        }
-                    }
-                )
+                    )
+                }
             }
         }
 
@@ -65,35 +68,40 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: "${DOCKER_CRED_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
                     sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin"
                     
-                    parallel(
-                        "Push Frontend": {
-                            sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
-                            sh "docker push ${FRONTEND_IMAGE}:latest"
-                        },
-                        "Push Backend": {
-                            sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
-                            sh "docker push ${BACKEND_IMAGE}:latest"
-                        }
-                    )
+                    // Fixed: Wrapped scripted parallel inside a script block
+                    script {
+                        parallel(
+                            "Push Frontend": {
+                                sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                                sh "docker push ${FRONTEND_IMAGE}:latest"
+                            },
+                            "Push Backend": {
+                                sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
+                                sh "docker push ${BACKEND_IMAGE}:latest"
+                            }
+                        )
+                    }
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                // Securely use kubeconfig to apply manifests and update image versions
-                configFileProvider([configFile(fileId: "${KUBE_CONFIG_ID}", variable: 'KUBECONFIG')]) {
+                // Fixed: Changed from configFileProvider to withCredentials to match your saved Secret File
+                withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'CLUSTER_KUBECONFIG')]) {
                     dir('k8s') {
                         echo "Updating deployment images to tag: ${IMAGE_TAG}"
                         
+                        // Apply manifests using the injected kubeconfig
+                        sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl apply -f . --validate=false"
+                        
                         // Dynamically update the image tags in manifest files or via kubectl set image
-                        sh "kubectl apply -f ."
-                        sh "kubectl set image deployment/frontend-deployment frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} --kubeconfig=${KUBECONFIG}"
-                        sh "kubectl set image deployment/backend-deployment backend=${BACKEND_IMAGE}:${IMAGE_TAG} --kubeconfig=${KUBECONFIG}"
+                        sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl set image deployment/frontend-deployment frontend=${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                        sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl set image deployment/backend-deployment backend=${BACKEND_IMAGE}:${IMAGE_TAG}"
                         
                         // Verify the rollout status
-                        sh "kubectl rollout status deployment/frontend-deployment --kubeconfig=${KUBECONFIG}"
-                        sh "kubectl rollout status deployment/backend-deployment --kubeconfig=${KUBECONFIG}"
+                        sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl rollout status deployment/frontend-deployment"
+                        sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl rollout status deployment/backend-deployment"
                     }
                 }
             }
