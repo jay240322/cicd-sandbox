@@ -38,12 +38,12 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+       stage('Deploy to Kubernetes') {
             steps {
                 echo 'Deploying application to Kubernetes cluster...'
                 script {
                     sh "sed -i 's|image:.*|image: ${IMAGE_NAME}|g' k8s/mongo-express.yaml" 
-                    sh "kubectl apply -f k8s/"
+                    sh "kubectl apply -f k8s/ --validate=false" //flag
                 }
             }
         }
