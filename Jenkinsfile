@@ -45,18 +45,25 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                // Fixed: Wrapped scripted parallel inside a script block
                 script {
                     parallel(
                         "Frontend": {
-                            dir('frontend') {
-                                sh "docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
-                            }
+                            sh """
+                                if [ -f frontend/Dockerfile ]; then
+                                    docker build -f frontend/Dockerfile -t \$FRONTEND_IMAGE:\$IMAGE_TAG -t \$FRONTEND_IMAGE:latest frontend
+                                else
+                                    docker build -t \$FRONTEND_IMAGE:\$IMAGE_TAG -t \$FRONTEND_IMAGE:latest frontend
+                                fi
+                            """
                         },
                         "Backend": {
-                            dir('backend') {
-                                sh "docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
-                            }
+                            sh """
+                                if [ -f backend/Dockerfile ]; then
+                                    docker build -f backend/Dockerfile -t \$BACKEND_IMAGE:\$IMAGE_TAG -t \$BACKEND_IMAGE:latest backend
+                                else
+                                    docker build -t \$BACKEND_IMAGE:\$IMAGE_TAG -t \$BACKEND_IMAGE:latest backend
+                                fi
+                            """
                         }
                     )
                 }
