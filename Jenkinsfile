@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_USER = 'jay240322' 
-        APP_NAME        = 'cicd-sandbox-nginx'
+        APP_NAME        = 'ci-cd-workflow'
         IMAGE_TAG       = "${env.BUILD_NUMBER}"
         IMAGE_NAME      = "${DOCKER_HUB_USER}/${APP_NAME}:${IMAGE_TAG}"
     }
