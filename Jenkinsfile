@@ -48,22 +48,36 @@ pipeline {
                 script {
                     parallel(
                         "Frontend": {
-                            sh """
-                                if [ -f frontend/Dockerfile ]; then
-                                    docker build -f frontend/Dockerfile -t \$FRONTEND_IMAGE:\$IMAGE_TAG -t \$FRONTEND_IMAGE:latest frontend
-                                else
-                                    docker build -t \$FRONTEND_IMAGE:\$IMAGE_TAG -t \$FRONTEND_IMAGE:latest frontend
-                                fi
-                            """
+                            script {
+                                // Switch into the frontend directory cleanly
+                                dir('frontend') {
+                                    if (fileExists('Dockerfile')) {
+                                        sh "docker build -f Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                                    } else if (fileExists('dockerfile')) {
+                                        sh "docker build -f dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                                    } else {
+                                        // Fallback: If it's in the root folder instead
+                                        echo "Dockerfile not found in frontend/, trying root folder fallback..."
+                                        sh "docker build -f ../Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest .."
+                                    }
+                                }
+                            }
                         },
                         "Backend": {
-                            sh """
-                                if [ -f backend/Dockerfile ]; then
-                                    docker build -f backend/Dockerfile -t \$BACKEND_IMAGE:\$IMAGE_TAG -t \$BACKEND_IMAGE:latest backend
-                                else
-                                    docker build -t \$BACKEND_IMAGE:\$IMAGE_TAG -t \$BACKEND_IMAGE:latest backend
-                                fi
-                            """
+                            script {
+                                // Switch into the backend directory cleanly
+                                dir('backend') {
+                                    if (fileExists('Dockerfile')) {
+                                        sh "docker build -f Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                                    } else if (fileExists('dockerfile')) {
+                                        sh "docker build -f dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                                    } else {
+                                        // Fallback: If it's in the root folder instead
+                                        echo "Dockerfile not found in backend/, trying root folder fallback..."
+                                        sh "docker build -f ../Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest .."
+                                    }
+                                }
+                            }
                         }
                     )
                 }
@@ -75,7 +89,6 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: "${DOCKER_CRED_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
                     sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin"
                     
-                    // Fixed: Wrapped scripted parallel inside a script block
                     script {
                         parallel(
                             "Push Frontend": {
@@ -94,19 +107,15 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                // Fixed: Changed from configFileProvider to withCredentials to match your saved Secret File
                 withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'CLUSTER_KUBECONFIG')]) {
                     dir('k8s') {
                         echo "Updating deployment images to tag: ${IMAGE_TAG}"
                         
-                        // Apply manifests using the injected kubeconfig
                         sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl apply -f . --validate=false"
                         
-                        // Dynamically update the image tags in manifest files or via kubectl set image
                         sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl set image deployment/frontend-deployment frontend=${FRONTEND_IMAGE}:${IMAGE_TAG}"
                         sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl set image deployment/backend-deployment backend=${BACKEND_IMAGE}:${IMAGE_TAG}"
                         
-                        // Verify the rollout status
                         sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl rollout status deployment/frontend-deployment"
                         sh "KUBECONFIG=\$CLUSTER_KUBECONFIG kubectl rollout status deployment/backend-deployment"
                     }
