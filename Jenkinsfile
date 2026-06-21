@@ -116,7 +116,7 @@ pipeline {
                             sh "grep 'server:' \$RAW_KUBECONFIG || echo 'Could not find server key'"
                         }
                         
-                        // Fake a successful exit for now so the pipeline finishes running while we check logs
+                        // Fake a successful exit for now so the pipeline
                         sh "echo 'Bypassing execution for check...' && exit 0"
                     }
                 }
