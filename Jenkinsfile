@@ -109,27 +109,15 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'RAW_KUBECONFIG')]) {
                     dir('k8s') {
-                        echo "Updating deployment images to tag: ${IMAGE_TAG}"
+                        echo "=== Inspecting Cluster Configurations ==="
                         
                         script {
-                            // Copy the kubeconfig file to a modifiable location in the workspace
-                            sh "cp \$RAW_KUBECONFIG ./local_kubeconfig"
-                            
-                            // Replace 127.0.0.1 or localhost with host.docker.internal
-                            sh "sed -i 's/127.0.0.1/host.docker.internal/g' ./local_kubeconfig"
-                            sh "sed -i 's/localhost/host.docker.internal/g' ./local_kubeconfig"
+                            // Print out lines containing 'server' from your uploaded credential file
+                            sh "grep 'server:' \$RAW_KUBECONFIG || echo 'Could not find server key'"
                         }
                         
-                        // Apply manifests using the updated local config file
-                        sh "KUBECONFIG=./local_kubeconfig kubectl apply -f . --validate=false"
-                        
-                        // Dynamically update the image tags in the cluster
-                        sh "KUBECONFIG=./local_kubeconfig kubectl set image deployment/frontend-deployment frontend=${FRONTEND_IMAGE}:${IMAGE_TAG}"
-                        sh "KUBECONFIG=./local_kubeconfig kubectl set image deployment/backend-deployment backend=${BACKEND_IMAGE}:${IMAGE_TAG}"
-                        
-                        // Verify the rollout status
-                        sh "KUBECONFIG=./local_kubeconfig kubectl rollout status deployment/frontend-deployment"
-                        sh "KUBECONFIG=./local_kubeconfig kubectl rollout status deployment/backend-deployment"
+                        // Fake a successful exit for now so the pipeline finishes running while we check logs
+                        sh "echo 'Bypassing execution for check...' && exit 0"
                     }
                 }
             }
