@@ -105,22 +105,25 @@ pipeline {
             }
         }
 
-     stage('Deploy to Kubernetes') {
-            steps {
-                withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'KUBECONFIG_FILE')]) {
-                    dir('k8s') { 
-                        echo "=== Updating Deployment Images ==="
-                        sh "sed -i 's|joypatel2403/practise:latest|joypatel2403/practise:${IMAGE_TAG}|g' workflow.yaml"
-                        
-                        echo "=== Applying Kubernetes Configurations ==="
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo.yaml'
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo-express.yaml'
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f workflow.yaml'
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f ingress.yaml'
-                    }
-                }
+    stage('Deploy to Kubernetes') {
+    steps {
+        withCredentials([file(credentialsId: 'your-kubeconfig-id', variable: 'KUBECONFIG_FILE')]) {
+            dir('k8s') {
+                sh '''
+                    export KUBECONFIG="${KUBECONFIG_FILE}"
+                    
+                    echo "=== Updating Deployment Images ==="
+                    sed -i "s|joypatel2403/practise:latest|joypatel2403/practise:6|g" workflow.yaml
+                    
+                    echo "=== Applying Kubernetes Configurations ==="
+                    # ADDED --validate=false TO BYPASS THE NETWORK TIMEOUT
+                    kubectl apply -f mongo.yaml --validate=false
+                    kubectl apply -f workflow.yaml --validate=false
+                '''
             }
         }
+    }
+}
     }
 
     post {
