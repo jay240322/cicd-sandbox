@@ -105,26 +105,23 @@ pipeline {
             }
         }
 
-       stage('Deploy to Kubernetes') {
-    steps {
-        withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'RAW_KUBECONFIG')]) {
-            dir('k8s') { 
-                echo "=== Updating Deployment Images ==="
-                // Replaces ':latest' with the actual build number dynamically
-                sh "sed -i 's|joypatel2403/practise:latest|joypatel2403/practise:${IMAGE_TAG}|g' workflow.yaml"
-
-                echo "=== Setting Up Cluster Credentials ==="
-                env.KUBECONFIG = "${RAW_KUBECONFIG}"
-
-                echo "=== Applying Kubernetes Configurations ==="
-                sh "kubectl apply -f mongo.yaml"
-                sh "kubectl apply -f mongo-express.yaml"
-                sh "kubectl apply -f workflow.yaml"
-                sh "kubectl apply -f ingress.yaml"
+      stage('Deploy to Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'RAW_KUBECONFIG')]) {
+                    dir('k8s') { 
+                        echo "=== Updating Deployment Images ==="
+                        sh "sed -i 's|joypatel2403/practise:latest|joypatel2403/practise:${IMAGE_TAG}|g' workflow.yaml"
+                        
+                        echo "=== Applying Kubernetes Configurations ==="
+                        // Passing KUBECONFIG directly on the line avoids the Groovy syntax error completely
+                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f mongo.yaml"
+                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f mongo-express.yaml"
+                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f workflow.yaml"
+                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f ingress.yaml"
+                    }
+                }
             }
         }
-    }
-}
     }
 
     post {
