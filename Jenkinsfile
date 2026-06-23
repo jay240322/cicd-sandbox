@@ -107,18 +107,17 @@ pipeline {
 
      stage('Deploy to Kubernetes') {
             steps {
-                // We use 'variable' to cleanly capture the file path string
                 withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'KUBECONFIG_FILE')]) {
                     dir('k8s') { 
                         echo "=== Updating Deployment Images ==="
                         sh "sed -i 's|joypatel2403/practise:latest|joypatel2403/practise:${IMAGE_TAG}|g' workflow.yaml"
                         
                         echo "=== Applying Kubernetes Configurations ==="
-                        // Using double quotes inside single quotes protects the file path evaluation
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo.yaml'
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo-express.yaml'
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f workflow.yaml'
-                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f ingress.yaml'
+                        // Using --validate=false stops kubectl from trying to scrape your Jenkins server for OpenAPI schemas
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo.yaml --validate=false'
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo-express.yaml --validate=false'
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f workflow.yaml --validate=false'
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f ingress.yaml --validate=false'
                     }
                 }
             }
