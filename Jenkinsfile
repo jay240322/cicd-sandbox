@@ -105,19 +105,20 @@ pipeline {
             }
         }
 
-      stage('Deploy to Kubernetes') {
+     stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'RAW_KUBECONFIG')]) {
+                // We use 'variable' to cleanly capture the file path string
+                withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'KUBECONFIG_FILE')]) {
                     dir('k8s') { 
                         echo "=== Updating Deployment Images ==="
                         sh "sed -i 's|joypatel2403/practise:latest|joypatel2403/practise:${IMAGE_TAG}|g' workflow.yaml"
                         
                         echo "=== Applying Kubernetes Configurations ==="
-                        // Passing KUBECONFIG directly on the line avoids the Groovy syntax error completely
-                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f mongo.yaml"
-                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f mongo-express.yaml"
-                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f workflow.yaml"
-                        sh "KUBECONFIG=${RAW_KUBECONFIG} kubectl apply -f ingress.yaml"
+                        // Using double quotes inside single quotes protects the file path evaluation
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo.yaml'
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f mongo-express.yaml'
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f workflow.yaml'
+                        sh 'KUBECONFIG="${KUBECONFIG_FILE}" kubectl apply -f ingress.yaml'
                     }
                 }
             }
