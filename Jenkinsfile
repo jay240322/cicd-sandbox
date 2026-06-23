@@ -105,23 +105,26 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
-            steps {
-                withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'RAW_KUBECONFIG')]) {
-                    dir('k8s') {
-                        echo "=== Inspecting Cluster Configurations ==="
-                        
-                        script {
-                            // Print out lines containing 'server' from your uploaded credential file
-                            sh "grep 'server:' \$RAW_KUBECONFIG || echo 'Could not find server key'"
-                        }
-                        
-                        // Fake a successful exit for now so the pipeline
-                        sh "echo 'Bypassing execution for check...' && exit 0"
-                    }
-                }
+       stage('Deploy to Kubernetes') {
+    steps {
+        withCredentials([file(credentialsId: "${KUBE_CONFIG_ID}", variable: 'RAW_KUBECONFIG')]) {
+            dir('k8s') { 
+                echo "=== Updating Deployment Images ==="
+                // Replaces ':latest' with the actual build number dynamically
+                sh "sed -i 's|joypatel2403/practise:latest|joypatel2403/practise:${IMAGE_TAG}|g' workflow.yaml"
+
+                echo "=== Setting Up Cluster Credentials ==="
+                env.KUBECONFIG = "${RAW_KUBECONFIG}"
+
+                echo "=== Applying Kubernetes Configurations ==="
+                sh "kubectl apply -f mongo.yaml"
+                sh "kubectl apply -f mongo-express.yaml"
+                sh "kubectl apply -f workflow.yaml"
+                sh "kubectl apply -f ingress.yaml"
             }
         }
+    }
+}
     }
 
     post {
