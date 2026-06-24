@@ -6,10 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: '0.0.0.0', // Forces Vite to listen to external network traffic in Kubernetes
+    host: '0.0.0.0', 
     proxy: {
       '/api': {
-        target: 'http://localhost:5000', // Forwards all /api requests straight to your backend container
+        target: 'http://127.0.0.1:5000', // Changed from localhost to 127.0.0.1
         changeOrigin: true,
         secure: false,
       }

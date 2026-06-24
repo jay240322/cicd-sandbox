@@ -205,6 +205,7 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-app.listen(port, () => {
+// Replace lines 149-151 with this:
+app.listen(port, '0.0.0.0', () => {
   console.log(`Backend authentication server running on port: ${port}`);
 });
