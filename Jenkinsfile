@@ -10,7 +10,10 @@ pipeline {
         
         // Credentials IDs configured in your Jenkins Dashboard
         DOCKER_CRED_ID  = 'docker-hub-credentials' 
-        KUBE_CONFIG_ID  = 'k8s-config' 
+        // UPDATED: Points to your new Secret Text credential ID
+        KUBE_TOKEN_ID   = 'kubectl-token' 
+        // Run 'minikube ip' in your terminal and update this if your Minikube IP changed
+        KUBE_API_SERVER = 'https://192.168.49.2:8443' 
     }
 
     stages {
@@ -49,14 +52,12 @@ pipeline {
                     parallel(
                         "Frontend": {
                             script {
-                                // Switch into the frontend directory cleanly
                                 dir('frontend') {
                                     if (fileExists('Dockerfile')) {
                                         sh "docker build -f Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
                                     } else if (fileExists('dockerfile')) {
                                         sh "docker build -f dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
                                     } else {
-                                        // Fallback: If it's in the root folder instead
                                         echo "Dockerfile not found in frontend/, trying root folder fallback..."
                                         sh "docker build -f ../Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest .."
                                     }
@@ -65,14 +66,12 @@ pipeline {
                         },
                         "Backend": {
                             script {
-                                // Switch into the backend directory cleanly
                                 dir('backend') {
                                     if (fileExists('Dockerfile')) {
                                         sh "docker build -f Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
                                     } else if (fileExists('dockerfile')) {
                                         sh "docker build -f dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
                                     } else {
-                                        // Fallback: If it's in the root folder instead
                                         echo "Dockerfile not found in backend/, trying root folder fallback..."
                                         sh "docker build -f ../Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest .."
                                     }
@@ -105,25 +104,26 @@ pipeline {
             }
         }
 
-    stage('Deploy to Kubernetes') {
-    steps {
-        withCredentials([file(credentialsId: 'k8s-config', variable: 'KUBECONFIG_FILE')]) {
-            dir('k8s') {
-                sh '''
-                    export KUBECONFIG="${KUBECONFIG_FILE}"
-                    
-                    echo "=== Updating Deployment Images ==="
-                    sed -i "s|joypatel2403/practise:latest|joypatel2403/practise:6|g" workflow.yaml
-                    
-                    echo "=== Applying Kubernetes Configurations ==="
-                    # ADDED --validate=false TO BYPASS THE NETWORK TIMEOUT
-                    kubectl apply -f mongo.yaml --validate=false
-                    kubectl apply -f workflow.yaml --validate=false
-                '''
+       stage('Deploy to Kubernetes') {
+            steps {
+                // FIXED: Now properly references the environment variable KUBE_TOKEN_ID
+                withCredentials([string(credentialsId: "${KUBE_TOKEN_ID}", variable: 'KUBE_TOKEN')]) {
+                    dir('k8s') {
+                        sh """
+                            echo "=== Updating Deployment Images to Build Tag: ${IMAGE_TAG} ==="
+                            # Dynamically changes the deployment tags to your current build iteration
+                            sed -i "s|${FRONTEND_IMAGE}:latest|${FRONTEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
+                            sed -i "s|${BACKEND_IMAGE}:latest|${BACKEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
+                            
+                            echo "=== Applying Kubernetes Configurations using Token ==="
+                            # Authenticating directly via API parameters (--token, --server, --insecure-skip-tls-verify)
+                            kubectl apply -f mongo.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
+                            kubectl apply -f workflow.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
+                        """
+                    }
+                }
             }
         }
-    }
-}
     }
 
     post {
