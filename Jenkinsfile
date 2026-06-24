@@ -116,7 +116,7 @@ pipeline {
                             echo "=== Applying Kubernetes Configurations using Token ==="
                             
                             # ADDED: Deploys your Mongo-Express database GUI setup automatically
-                            kubectl apply -f mongo-express.yml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
+                            kubectl apply -f mongo-express.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
                             
                             kubectl apply -f mongo.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
                             kubectl apply -f workflow.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
