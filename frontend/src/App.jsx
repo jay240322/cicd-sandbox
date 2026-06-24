@@ -3,7 +3,7 @@ import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 
 // Read API URL from environment variables, fallback to localhost:5000
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:54888';
 
 export default function App() {
   const [user, setUser] = useState(null);
