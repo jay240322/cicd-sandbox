@@ -13,8 +13,16 @@ spec:
         app: workflow-app
     spec:
       containers:
-      - name: workflow-app
-        image: joypatel2403/practise:latest
+      # 1. FRONTEND CONTAINER
+      - name: workflow-frontend
+        image: joypatel2403/ci-cd-workflow-frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+
+      # 2. BACKEND CONTAINER
+      - name: workflow-backend
+        image: joypatel2403/ci-cd-workflow-backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
@@ -41,6 +49,13 @@ spec:
   selector:
     app: workflow-app
   ports:
-    - port: 5000
-      targetPort: 5000
+    # Exposing the frontend port (3000) to your browser
+    - name: frontend
+      port: 3000
+      targetPort: 3000
       nodePort: 30050
+    # Keeping the backend port (5000) accessible if needed
+    - name: backend
+      port: 5000
+      targetPort: 5000
+      nodePort: 30051
