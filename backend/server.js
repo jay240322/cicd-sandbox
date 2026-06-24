@@ -51,10 +51,17 @@ async function connectDatabase() {
 }
 
 // Ensure DB is connected middleware
+// Replace your old ensureDbConnected with this:
 async function ensureDbConnected(req, res, next) {
-  if (!dbClient || !db) {
+  if (!dbClient || !db || !usersCollection) { // Added !usersCollection check
     try {
+      console.log('🔄 Database connection missing on request. Re-connecting...');
       await connectDatabase();
+      
+      // Double check if it succeeded
+      if (!usersCollection) {
+        throw new Error('Database connected but collections failed to initialize.');
+      }
     } catch (err) {
       return res.status(500).json({
         success: false,
