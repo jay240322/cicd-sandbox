@@ -21,7 +21,7 @@ if (fs.existsSync(frontendDistPath)) {
 }
 
 // MongoDB configuration read directly from your Compose environments
-const mongoUri = process.env.MONGO_URI || 'mongodb://admin:password123@mongodb:27017/auth_db?authSource=admin';
+const mongoUri = process.env.MONGO_URI || 'mongodb://admin:password123@mongo:27017/auth_db?authSource=admin';
 const dbName = process.env.MONGO_DB_NAME || 'auth_db';
 const usersCollectionName = 'users';
 
