@@ -106,17 +106,18 @@ pipeline {
 
        stage('Deploy to Kubernetes') {
             steps {
-                // FIXED: Now properly references the environment variable KUBE_TOKEN_ID
                 withCredentials([string(credentialsId: "${KUBE_TOKEN_ID}", variable: 'KUBE_TOKEN')]) {
                     dir('k8s') {
                         sh """
                             echo "=== Updating Deployment Images to Build Tag: ${IMAGE_TAG} ==="
-                            # Dynamically changes the deployment tags to your current build iteration
                             sed -i "s|${FRONTEND_IMAGE}:latest|${FRONTEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
                             sed -i "s|${BACKEND_IMAGE}:latest|${BACKEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
                             
                             echo "=== Applying Kubernetes Configurations using Token ==="
-                            # Authenticating directly via API parameters (--token, --server, --insecure-skip-tls-verify)
+                            
+                            # ADDED: Deploys your Mongo-Express database GUI setup automatically
+                            kubectl apply -f mongo-express.yml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
+                            
                             kubectl apply -f mongo.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
                             kubectl apply -f workflow.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
                         """
