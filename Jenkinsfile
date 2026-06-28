@@ -49,6 +49,8 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
+                    withCredentials([usernamePassword(credentialsId: "${DOCKER_CRED_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
+                              sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin"
                     parallel(
                         "Frontend": {
                             script {
