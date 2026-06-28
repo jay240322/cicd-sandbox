@@ -50,40 +50,41 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: "${DOCKER_CRED_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-                              sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin"
-                    parallel(
-                        "Frontend": {
-                            script {
-                                dir('frontend') {
-                                    if (fileExists('Dockerfile')) {
-                                        sh "docker build -f Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
-                                    } else if (fileExists('dockerfile')) {
-                                        sh "docker build -f dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
-                                    } else {
-                                        echo "Dockerfile not found in frontend/, trying root folder fallback..."
-                                        sh "docker build -f ../Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest .."
+                        sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USER} --password-stdin"
+                        parallel(
+                            "Frontend": {
+                                script {
+                                    dir('frontend') {
+                                        if (fileExists('Dockerfile')) {
+                                            sh "docker build -f Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                                        } else if (fileExists('dockerfile')) {
+                                            sh "docker build -f dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest ."
+                                        } else {
+                                            echo "Dockerfile not found in frontend/, trying root folder fallback..."
+                                            sh "docker build -f ../Dockerfile -t ${FRONTEND_IMAGE}:${IMAGE_TAG} -t ${FRONTEND_IMAGE}:latest .."
+                                        }
+                                    }
+                                }
+                            },
+                            "Backend": {
+                                script {
+                                    dir('backend') {
+                                        if (fileExists('Dockerfile')) {
+                                            sh "docker build -f Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                                        } else if (fileExists('dockerfile')) {
+                                            sh "docker build -f dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
+                                        } else {
+                                            echo "Dockerfile not found in backend/, trying root folder fallback..."
+                                            sh "docker build -f ../Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest .."
+                                        }
                                     }
                                 }
                             }
-                        },
-                        "Backend": {
-                            script {
-                                dir('backend') {
-                                    if (fileExists('Dockerfile')) {
-                                        sh "docker build -f Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
-                                    } else if (fileExists('dockerfile')) {
-                                        sh "docker build -f dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest ."
-                                    } else {
-                                        echo "Dockerfile not found in backend/, trying root folder fallback..."
-                                        sh "docker build -f ../Dockerfile -t ${BACKEND_IMAGE}:${IMAGE_TAG} -t ${BACKEND_IMAGE}:latest .."
-                                    }
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
+                        )
+                    } // Closes withCredentials
+                } // Closes script (This was missing!)
+            } // Closes steps
+        } // Closes stage
 
         stage('Push to Registry') {
             steps {
