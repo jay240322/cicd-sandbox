@@ -9,14 +9,11 @@ pipeline {
         IMAGE_TAG       = "${BUILD_NUMBER}"
         
         // Credentials IDs configured in your Jenkins Dashboard
-        DOCKER_CRED_ID  = 'Dockerhub' 
+        DOCKER_CRED_ID  = 'docker-hub-credentials' 
         // UPDATED: Points to your new Secret Text credential ID
-        KUBE_TOKEN_ID   = 'k8s' 
+        KUBE_TOKEN_ID   = 'kubectl-token' 
         // Run 'minikube ip' in your terminal and update this if your Minikube IP changed
         KUBE_API_SERVER = 'https://192.168.49.2:8443' 
-    }
-    tools {
-        dockerTool 'docker' // <-- Change 'docker' to match your Tool Name exactly
     }
 
     stages {
