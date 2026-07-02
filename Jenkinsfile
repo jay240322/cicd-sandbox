@@ -128,7 +128,7 @@ pipeline {
                             # [skip ci] stops Jenkins from executing another build automatically on this push
                             git commit -m "automation: upgrade app images to tag ${IMAGE_TAG} [skip ci]" || echo "No changes to commit"
                             
-                            git push https://\${GIT_USER}:\text{\${GIT_PASSWORD}}@github.com/joypatel2403/ci-cd-workflow.git HEAD:main
+                           git push https://\${GIT_USER}:\${GIT_PASSWORD}@github.com/jay240322/cicd-sandbox.git HEAD:main
                         """
                     }
                 }
