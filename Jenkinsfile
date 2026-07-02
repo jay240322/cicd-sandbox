@@ -14,6 +14,8 @@ pipeline {
         KUBE_TOKEN_ID   = 'kubectl-token' 
         // Run 'minikube ip' in your terminal and update this if your Minikube IP changed
         KUBE_API_SERVER = 'https://192.168.49.2:8443' 
+
+        GITHUB_CRED_ID  = 'github-credentials'
     }
 
     stages {
@@ -106,23 +108,27 @@ pipeline {
                 }
             }
         }
-
-       stage('Deploy to Kubernetes') {
+        stage('Update Manifests & Git Push') {
             steps {
-                withCredentials([string(credentialsId: "${KUBE_TOKEN_ID}", variable: 'KUBE_TOKEN')]) {
+                withCredentials([usernamePassword(credentialsId: "${GITHUB_CRED_ID}", usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASSWORD')]) {
                     dir('k8s') {
                         sh """
-                            echo "=== Updating Deployment Images to Build Tag: ${IMAGE_TAG} ==="
-                            sed -i "s|${FRONTEND_IMAGE}:latest|${FRONTEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
-                            sed -i "s|${BACKEND_IMAGE}:latest|${BACKEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
+                            echo "=== Updating Git Manifests to Build Tag: ${IMAGE_TAG} ==="
                             
-                            echo "=== Applying Kubernetes Configurations using Token ==="
+                            # Matches 'image: joypatel2403/ci-cd-workflow-xxx:<anything>' and swaps it with the exact build number
+                            sed -i "s|image: ${FRONTEND_IMAGE}:.*|image: ${FRONTEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
+                            sed -i "s|image: ${BACKEND_IMAGE}:.*|image: ${BACKEND_IMAGE}:${IMAGE_TAG}|g" workflow.yaml
                             
-                            # ADDED: Deploys your Mongo-Express database GUI setup automatically
-                            kubectl apply -f mongo-express.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
+                            echo "=== Committing changes back to GitHub ==="
+                            git config user.email "jenkins-bot@example.com"
+                            git config user.name "Jenkins Automation"
                             
-                            kubectl apply -f mongo.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
-                            kubectl apply -f workflow.yaml --token=\${KUBE_TOKEN} --server=${KUBE_API_SERVER} --insecure-skip-tls-verify=true --validate=false
+                            git add workflow.yaml
+                            
+                            # [skip ci] stops Jenkins from executing another build automatically on this push
+                            git commit -m "automation: upgrade app images to tag ${IMAGE_TAG} [skip ci]" || echo "No changes to commit"
+                            
+                            git push https://\${GIT_USER}:\text{\${GIT_PASSWORD}}@github.com/joypatel2403/ci-cd-workflow.git HEAD:main
                         """
                     }
                 }
