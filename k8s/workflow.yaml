@@ -15,14 +15,14 @@ spec:
       containers:
       # 1. FRONTEND CONTAINER
       - name: workflow-frontend
-        image: joypatel2403/ci-cd-workflow-frontend:37
+        image: joypatel2403/ci-cd-workflow-frontend:38
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
 
       # 2. BACKEND CONTAINER
       - name: workflow-backend
-        image: joypatel2403/ci-cd-workflow-backend:37
+        image: joypatel2403/ci-cd-workflow-backend:38
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
